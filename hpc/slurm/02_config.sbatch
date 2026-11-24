@@ -2,7 +2,7 @@
 # Step 2: WAVES configuration pipeline. It makes the five Python environments
 # and runs all methods on the WAVES test files.
 # The node needs internet access (conda, PyPI, GitHub, model weights).
-# Submit from the kit folder: sbatch 02_config.sbatch
+# Submit from this folder: sbatch 02_config.sbatch
 #SBATCH --job-name=waves-config
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=64G

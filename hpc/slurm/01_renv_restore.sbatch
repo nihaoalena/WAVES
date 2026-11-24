@@ -1,6 +1,6 @@
 #!/bin/bash
 # Step 1: install the R packages of WAVES (renv.lock), built from source.
-# Submit from the kit folder: sbatch 01_renv_restore.sbatch
+# Submit from this folder: sbatch 01_renv_restore.sbatch
 #SBATCH --job-name=waves-renv
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=16G

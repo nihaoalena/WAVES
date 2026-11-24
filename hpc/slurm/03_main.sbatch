@@ -1,6 +1,6 @@
 #!/bin/bash
 # Step 3: WAVES main pipeline on your data (set in WAVES _waves.yml).
-# Submit from the kit folder: sbatch 03_main.sbatch
+# Submit from this folder: sbatch 03_main.sbatch
 # After the job, get the peak memory with: sacct -j <job id> --format=MaxRSS,Elapsed
 #SBATCH --job-name=waves-main
 #SBATCH --cpus-per-task=4

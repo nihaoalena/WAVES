@@ -1,6 +1,6 @@
 # Running WAVES on a SLURM cluster
 
-This kit runs the [WAVES pipeline](https://github.com/WAVES-Collaborative/WAVES) as SLURM jobs, without RStudio. We tested it on the Oxford BMRC cluster (Rocky Linux 8.10, x86_64) in November 2026, with WAVES commit `bde0f1d` and R 4.5.3. For questions about this kit, contact Alyona Tsvetkova (University of Oxford). For questions about WAVES itself, use the [WAVES issues](https://github.com/WAVES-Collaborative/WAVES/issues).
+This code runs the [WAVES pipeline](https://github.com/WAVES-Collaborative/WAVES) as SLURM jobs, without RStudio. We tested it on the Oxford BMRC cluster (Rocky Linux 8.10, x86_64) in November 2026, with WAVES commit `bde0f1d` and R 4.5.3. For questions about this code, contact Alyona Tsvetkova (alena.tsvetkova@ndph.ox.ac.uk).
 
 ## What you need
 
@@ -25,15 +25,15 @@ If the compute nodes have no internet access, ask your cluster support where you
 
 ## Before you start
 
-1. Clone this branch: `git clone -b hpc-slurm https://github.com/nihaoalena/WAVES.git`. The kit is in `hpc/slurm/`, and `WAVES_DIR` already points to the clone.
+1. Clone this branch: `git clone -b hpc-slurm https://github.com/nihaoalena/WAVES.git`. The code is in `hpc/slurm/`, and `WAVES_DIR` already points to the clone.
 2. In `config.env`, set `WORK_DIR` and `CONDA_MODULE`. Use absolute paths without spaces, because WAVES builds shell commands from these paths.
 3. In the WAVES folder, edit `_waves.yml` for your data. The [YAML instructions](https://waves-collaborative.github.io/WAVES/articles/instructions-yaml.html) give each setting.
 
-Submit all jobs from the kit folder (`hpc/slurm/`). To use a different partition or account, add the SLURM options to the command, for example `sbatch -p long -A myaccount 03_main.sbatch`. Options on the command line replace the `#SBATCH` lines in the files.
+Submit all jobs from the `hpc/slurm/` folder. To use a different partition or account, add the SLURM options to the command, for example `sbatch -p long -A myaccount 03_main.sbatch`. Options on the command line replace the `#SBATCH` lines in the files.
 
 ## Step 0: install R and Miniforge
 
-From the kit folder, run `bash 00_install.sh` on a login node. To run it as a job instead, use this command from the kit folder:
+From the folder with these scripts, run `bash 00_install.sh` on a login node. To run it as a job instead, use this command from the same folder:
 
 ```
 sbatch --cpus-per-task=2 --mem=8G --time=01:00:00 --output=logs/%x_%j.out --wrap="bash 00_install.sh"
@@ -68,13 +68,14 @@ The default in WAVES is `trial_run <- FALSE`. With this value, the pipeline proc
 
 ## Resources
 
-| Step | CPUs | Memory | Time limit | What we measured |
-|---|---|---|---|---|
-| 1 | 8 | 16 GB | 4 hours | About 1.5 hours |
-| 2 | 4 | 64 GB | 4 hours | About 50 minutes and 20 GB. With 16 GB, SLURM stopped the job (out of memory). |
-| 3 | 4 | 64 GB | 24 hours | About 30 minutes and 18 to 22 GB for one 8-day file at 100 Hz |
+Steps 1 and 2 are the same for every group. The job files request enough for them: step 1 took about 1.5 hours, and step 2 took about 50 minutes and 20 GB.
 
-To get the peak memory of a finished job, run `sacct -j <job id> --format=MaxRSS,Elapsed`. Use this value to set `--mem` for your own data.
+Step 3 depends on your data. On our cluster, one 8-day file at 100 Hz took about 30 minutes and 20 GB of memory. Use this to set the request for step 3:
+
+- Memory: about 20 GB for each file that runs at the same time (`n_workers`). Shorter recordings or a lower sampling rate need less.
+- Time: about 30 minutes for each 8-day file, divided by `n_workers`.
+
+To get the real values for your data, first run step 3 on one file (`trial_run <- TRUE`). Then run `sacct -j <job id> --format=MaxRSS,Elapsed`.
 
 ## Parallel processing
 
@@ -84,7 +85,7 @@ WAVES processes files in parallel only inside one job. The number of parallel pr
 
 The scripts already contain these fixes. The table helps you if you see one of the errors.
 
-| Error or symptom | Cause | Fix in the kit |
+| Error or symptom | Cause | Fix in the scripts |
 |---|---|---|
 | The R module on the cluster is older than 4.4. | WAVES needs R 4.4 or later. | `00_install.sh` makes a conda environment with R 4.5 (`R_VERSION`) from conda-forge. |
 | `arrow` does not load: `undefined symbol: __libc_single_threaded` | The prebuilt arrow library needs glibc 2.32 or later. RHEL and Rocky 8 have 2.28. | `r-arrow` comes from conda-forge, and step 1 does not install `arrow` again. |

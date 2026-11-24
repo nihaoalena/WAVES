@@ -1,13 +1,13 @@
 #!/bin/bash
 # Step 0: make the R environment and the Miniforge for the WAVES Python environments.
-# Run it from the kit folder, on a login node or as a small job:
+# Run it from this folder, on a login node or as a small job:
 #   bash 00_install.sh
 #   sbatch --cpus-per-task=2 --mem=8G --time=01:00:00 --output=logs/%x_%j.out --wrap="bash 00_install.sh"
 set -eo pipefail
 if [ -f "$(dirname "${BASH_SOURCE[0]}")/env.sh" ]; then
   KIT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 else
-  KIT_DIR="${SLURM_SUBMIT_DIR:?Run this script from the kit folder}"
+  KIT_DIR="${SLURM_SUBMIT_DIR:?Run this script from this folder}"
 fi
 source "$KIT_DIR/env.sh"
 set -u
