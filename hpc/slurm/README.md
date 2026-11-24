@@ -7,7 +7,7 @@ This code runs the [WAVES pipeline](https://github.com/WAVES-Collaborative/WAVES
 - A Linux cluster with SLURM.
 - The `conda` command, from a cluster module or from your own installation.
 - About 20 GB of disk space outside `$HOME`.
-- Internet access on the login node and on the compute nodes for steps 1 and 2.
+- Internet access on the login node for step 0, and on the compute nodes for steps 1 and 2.
 
 If the compute nodes have no internet access, ask your cluster support where you can run downloads.
 
@@ -15,7 +15,7 @@ If the compute nodes have no internet access, ask your cluster support where you
 
 | File | What it does |
 |---|---|
-| `config.env` | Paths and cluster settings. This is the only file that you edit. |
+| `config.env` | Paths and cluster settings. This is the only file in this folder that you edit. |
 | `env.sh` | Sets up the environment for each step. The other scripts read it. |
 | `00_install.sh` | Makes the conda environment for R and installs Miniforge for the WAVES Python environments. |
 | `01_renv_restore.sbatch` | Installs the R packages of WAVES. |
@@ -25,11 +25,13 @@ If the compute nodes have no internet access, ask your cluster support where you
 
 ## Before you start
 
-1. Clone this branch: `git clone -b hpc-slurm https://github.com/nihaoalena/WAVES.git`. The code is in `hpc/slurm/`, and `WAVES_DIR` already points to the clone.
-2. In `config.env`, set `WORK_DIR` and `CONDA_MODULE`. Use absolute paths without spaces, because WAVES builds shell commands from these paths.
+1. Clone this branch on a large disk, not in `$HOME`: `git clone -b hpc-slurm https://github.com/nihaoalena/WAVES.git`. WAVES writes its results into this folder. The code is in `hpc/slurm/`, and `WAVES_DIR` already points to the clone.
+2. In `config.env`, set `WORK_DIR`. Set `CONDA_MODULE` to the module that gives `conda`. Leave it empty if `conda` is already on your PATH. Use absolute paths without spaces, because WAVES builds shell commands from these paths.
 3. In the WAVES folder, edit `_waves.yml` for your data. The [YAML instructions](https://waves-collaborative.github.io/WAVES/articles/instructions-yaml.html) give each setting.
 
 Submit all jobs from the `hpc/slurm/` folder. To use a different partition or account, add the SLURM options to the command, for example `sbatch -p long -A myaccount 03_main.sbatch`. Options on the command line replace the `#SBATCH` lines in the files.
+
+If a job fails, read its log in `logs/`, correct the cause and submit the same job again. The job continues from the completed work.
 
 ## Step 0: install R and Miniforge
 
@@ -39,13 +41,13 @@ From the folder with these scripts, run `bash 00_install.sh` on a login node. To
 sbatch --cpus-per-task=2 --mem=8G --time=01:00:00 --output=logs/%x_%j.out --wrap="bash 00_install.sh"
 ```
 
-The script downloads and unpacks packages. It installs a pinned Miniforge release (`MINIFORGE_VERSION`) and stops if the SHA-256 checksum of the installer does not match. It took about 2 minutes on our cluster. At the end, it shows the R version and the conda version.
+The script downloads and unpacks packages. It installs a pinned Miniforge release (`MINIFORGE_VERSION`) and stops if the SHA-256 checksum of the installer does not match. It took about 2 minutes on our cluster. At the end, it shows the R version and the conda version. The last line is `Step 0 done`.
 
 ## Step 1: install the R packages
 
 Run `sbatch 01_renv_restore.sbatch`.
 
-The job builds about 210 R packages from source. It took about 1.5 hours on our cluster, with 8 CPUs. The job fails if the installation or the loading of the packages fails. The log in `logs/` then shows `RESTORE_EXIT` or `LOAD_EXIT` with a value that is not 0.
+The job builds about 210 R packages from source. It took about 1.5 hours on our cluster, with 8 CPUs. The job is correct if the log ends with `RESTORE_EXIT=0` and `LOAD_EXIT=0`. The job fails if the installation or the loading of the packages fails. The log in `logs/` then shows `RESTORE_EXIT` or `LOAD_EXIT` with a value that is not 0.
 
 renv reports that the WAVES lockfile uses R 4.6.1. This warning is expected. WAVES works with R 4.4 or later.
 
@@ -55,7 +57,7 @@ Run `sbatch 02_config.sbatch`.
 
 The job makes the five Python environments (stepcount, accelerometer, actinet and two for Oak). Then it runs all methods on the WAVES test files. It took about 50 minutes on our cluster.
 
-The job fails if `tar_make()` fails or if one or more WAVES targets failed. Some WAVES targets continue after an error, so the job also lists the failed targets at the end of the log. If only the target `pipeline_summary` failed, the HTML report did not build. The environments are then still correct, and you can submit step 3.
+The job is correct if the last line of the log is `MAKE_EXIT=0 FAILED_TARGETS_EXIT=0`. The job fails if `tar_make()` fails or if one or more WAVES targets failed. Some WAVES targets continue after an error, so the job also lists the failed targets at the end of the log. If only the target `pipeline_summary` failed, the HTML report did not build. The environments are then still correct, and you can submit step 3.
 
 ## Step 3: run the main pipeline
 
@@ -64,13 +66,15 @@ The job fails if `tar_make()` fails or if one or more WAVES targets failed. Some
 3. Read the log in `logs/` and the report in the WAVES folder `reports/`. As in step 2, the job fails if a target failed, and the log lists the failed targets.
 4. If the trial run is correct, set `trial_run <- FALSE` and run `sbatch 03_main.sbatch` again.
 
+The results are in the WAVES folder `data/` (`2_INTERIM/` and `3_MERGED/`). The report is `reports/summary_pipeline_main.html`.
+
 The default in WAVES is `trial_run <- FALSE`. With this value, the pipeline processes all files at once.
 
 ## Resources
 
 Steps 1 and 2 are the same for every group. The job files request enough for them: step 1 took about 1.5 hours, and step 2 took about 50 minutes and 20 GB.
 
-Step 3 depends on your data. On our cluster, one 8-day file at 100 Hz took about 30 minutes and 20 GB of memory. Use this to set the request for step 3:
+Step 3 depends on your data. On our cluster, one 8-day file at 100 Hz took about 30 minutes and 20 GB of memory. Use this to set the request for step 3. `03_main.sbatch` requests 4 CPUs, 64 GB and 24 hours. To change the request, add options to the command, for example `sbatch --cpus-per-task=8 --mem=160G 03_main.sbatch`.
 
 - Memory: about 20 GB for each file that runs at the same time (`n_workers`). Shorter recordings or a lower sampling rate need less.
 - Time: about 30 minutes for each 8-day file, divided by `n_workers`.
@@ -79,7 +83,7 @@ To get the real values for your data, first run step 3 on one file (`trial_run <
 
 ## Parallel processing
 
-WAVES processes files in parallel only inside one job. The number of parallel processes is `n_workers` in the WAVES file `_targets.R`. Do not set it higher than the number of CPUs minus one. Each process uses one thread for the math libraries (`env.sh` sets this). WAVES does not divide the work into many SLURM jobs. For a large dataset, request more CPUs and more memory for step 3.
+WAVES processes files in parallel only inside one job. The number of parallel processes is `n_workers` in the WAVES file `_targets.R`. The default is `n_workers <- 2`. Do not set it higher than the number of CPUs minus one. Each process uses one thread for the math libraries (`env.sh` sets this). WAVES does not divide the work into many SLURM jobs. For a large dataset, request more CPUs and more memory for step 3.
 
 ## Known problems and their fixes
 
@@ -100,4 +104,4 @@ The scripts already contain these fixes. The table helps you if you see one of t
 
 ## Disk space
 
-All environments, caches and temporary files go to `WORK_DIR`. This includes the conda packages, the renv cache, the pip cache and the torch model weights. Nothing large goes to `$HOME`.
+All environments, caches and temporary files go to `WORK_DIR`. This includes the conda packages, the renv cache, the pip cache and the torch model weights. The scripts put nothing large in `$HOME`. The WAVES results go to the WAVES folder.
